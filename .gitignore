@@ -1,0 +1,6 @@
+[Bb]in/
+[Oo]bj/
+*.user
+[Tt]humbs.db
+*.suo
+*.vshost.*
