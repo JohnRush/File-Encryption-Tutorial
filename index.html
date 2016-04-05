@@ -39,7 +39,7 @@
 <h1>
 <a id="tutorial-1" class="anchor" href="#tutorial-1" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Tutorial 1</h1>
 
-<p>In this tutorial we start with an empty project and add just enough code to encrypt a single file. The result is a console program that, given a filename, will encrypt that file and write it out to a new file. A sample of usage might look something like this:</p>
+<p>In this tutorial we start with an empty project and add just enough code to encrypt a single file. The result is a console program that, given a file name, will encrypt that file and write it out to a new file. A sample of usage might look something like this:</p>
 
 <p><code>tutorial01 myfile.txt myfile.crypto</code></p>
 
@@ -86,9 +86,9 @@ namespace Tutorial01
 }
 </code></pre>
 
-<p>In the above code, that we require two arguments be provided. If not, we return with a friendly tip. Otherwise, we get the source filename as the first argument and the destination filename as the second argument. You might want to add some code to make sure the source file exists, but I'm going to skip that so we can focus on the core mechanics. If you are not familiar with the <code>using</code> statement, you may want to <a href="https://msdn.microsoft.com/en-us/library/yh598w02.aspx?f=255&amp;MSPPError=-2147217396">look that up</a>. In C# that is a way to cleanup objects when we are done with them. It is particularly useful for file operations.</p>
+<p>In the above code, that we require two arguments be provided. If not, we return with a friendly tip. Otherwise, we get the source file name as the first argument and the destination file name as the second argument. You might want to add some code to make sure the source file exists, but I'm going to skip that so we can focus on the core mechanics. If you are not familiar with the <code>using</code> statement, you may want to <a href="https://msdn.microsoft.com/en-us/library/yh598w02.aspx?f=255&amp;MSPPError=-2147217396">look that up</a>. In C# that is a way to cleanup objects when we are done with them. It is particularly useful for file operations.</p>
 
-<p>The real work is the five lines of code that start on line 19 with the <code>using</code> statement. We open our source file for reading (line 19) and we create our destination file for writing (line 20). We get a stream for each file and simply copy the contents of one file to the outher using the <code>CopyTo</code> method (line 22). If you are following along, this is a good time to make sure you can get this working and that you can create the target file identical to the source.</p>
+<p>The real work is the five lines of code that start on line 19 with the <code>using</code> statement. We open our source file for reading (line 19) and we create our destination file for writing (line 20). We get a stream for each file and simply copy the contents of one file to the other using the <code>CopyTo</code> method (line 22). If you are following along, this is a good time to make sure you can get this working and that you can create the target file identical to the source.</p>
 
 <h2>
 <a id="encryption-at-last" class="anchor" href="#encryption-at-last" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Encryption At Last</h2>
@@ -129,7 +129,7 @@ namespace Tutorial01
 
 <p>The only thing we did here was add a few lines of code (lines 22, 23, 24) and made a slight alteration to the stream copy (line 26). Line 22 creates a new <code>AesCryptoServiceProvider</code>. This provider has information about <em>how</em> we want to encrypt. We will look at that more later. For now, we just want to use it to create the decryptor transform that we need (line 23). If we wanted to do things the hard way we could use the transform directly, but it's easier to use the <code>CryptoStream</code>. On line 24 we create the <code>CryptoStream</code>. We need to give it the stream to write to, the transform (in our case the encryptor) and let it know that we want this to be a writable stream. The <code>CryptoStream</code> wraps our destination stream. That is, it takes the bytes that need to be written and processes (encrypts) the bytes and then sends the processed bytes to the destination stream. We basically inject our encryption between the two file streams that we are already using. Line 26 shows how we achieve this by calling <code>CopyTo</code> on the sourceStream and providing our new <code>CryptoStream</code>.</p>
 
-<p>When you run this program, your output file will be securely encrypted. You should test it to make sure. Your output file should like like a bunch of seamingly random bytes.</p>
+<p>When you run this program, your output file will be securely encrypted. You should test it to make sure. Your output file should like like a bunch of seemingly random bytes.</p>
 
 <h2>
 <a id="wait-a-minute" class="anchor" href="#wait-a-minute" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Wait a Minute!</h2>
@@ -144,12 +144,28 @@ namespace Tutorial01
         }
 </code></pre>
 
-<p>Not so tough. We just get the <code>Key</code> property of the <code>AesCryptoServiceProvider</code>. The key is an array of bytes, which won't print very nicely. Using <code>System.Convert.ToBase64String</code> makes it so we can represent all of those byte values as printable characters. We could have converted the byte array to a hex string or any number of things, but <a href="https://en.wikipedia.org/wiki/Base64">Base64</a> is convienient.</p>
+<p>Not so tough. We just get the <code>Key</code> property of the <code>AesCryptoServiceProvider</code>. The key is an array of bytes, which won't print very nicely. Using <code>System.Convert.ToBase64String</code> makes it so we can represent all of those byte values as printable characters. We could have converted the byte array to a hex string or any number of things, but <a href="https://en.wikipedia.org/wiki/Base64">Base64</a> is convenient.</p>
 
 <h2>
 <a id="oh-and-one-more-thing" class="anchor" href="#oh-and-one-more-thing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Oh, And One More Thing...</h2>
 
-<p>What about the <em>initialization vector</em>?</p>
+<p>When using AES we have the key, which is secret and should be protected. But there is another piece of data that is used to make the encryption stronger. It is called the IV (initialization vector). The IV tells the encryptor how to modify the first block to prevent against certain attacks. Changing the IV will change the encryption/decryption results, so we are going to need to have that available when we decrypt the file. The IV is not secret, however. So we don't need to hide it. Therefore, we can write it directly to the output file we are already writing. That way we can't possibly lose it. We do have to be careful though. If we write the IV to the file and the bytes get encrypted then we won't be able to get them back out (since we need them to do the decryption). We have to make sure to write the IV before any encryption happens. It only takes one line of code:</p>
+
+<pre><code>destinationStream.Write(provider.IV, 0, provider.IV.Length);
+</code></pre>
+
+<p>But, where we put that code is <strong>very important</strong>:</p>
+
+<pre><code>        {
+            destinationStream.Write(provider.IV, 0, provider.IV.Length);
+            sourceStream.CopyTo(cryptoStream);
+            Console.WriteLine(System.Convert.ToBase64String(provider.Key));
+        }
+</code></pre>
+
+<p>We can write directly to the destination stream (not the <code>CryptoStream</code>) before the ecryption that happens in the call to <code>CopyTo</code>. That way, the IV is not encrypted, but is right at the beginning of the destination file.</p>
+
+<p>Now we are looking pretty good. We encrypt a file. We save the IV in the file where it is easy to find and we display the key, so you save it in a secret place until it is needed to decrypt the file.</p>
 
 <p>Last updated: April 5, 2015</p>
       </section>
