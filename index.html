@@ -55,29 +55,11 @@
 <h2>
 <a id="a-basic-file-copier" class="anchor" href="#a-basic-file-copier" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>A Basic File Copier</h2>
 
-<p>Start off by creating a console project, so we can focus on just the interesting bits. Just so we know we are starting from the same place, this is a basic console project source file:</p>
-
-<pre><code>using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Tutorial01
-{
-    class Program
-    {
-        static void Main(string[] args)
-        {
-        }
-   }
-}
-</code></pre>
-
-<p>This will run, but do nothing interesting. Before we get into the details of encryption, let's get some basic functionality working. We simply want to copy the input file to the output file without making any changes to it. This way, we know we have something working that we can build on.</p>
+<p>Start off by creating a new console project. Before we get into the details of encryption, let's get some basic functionality working. We simply want to copy the input file to the output file without making any changes to it. This way, we know we have something working that we can build on.</p>
 
 <pre><code>using System;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace Tutorial01
 {
@@ -104,9 +86,70 @@ namespace Tutorial01
 }
 </code></pre>
 
-<p>In the above code, that we require two arguments be provided. If not, we return with a friendly tip. Otherwise, we get the source filename as the first argument and the destination filename as the second argument. You might want to add some code to make sure the source file exists, but I'm going to skip that so we can focus on the core mechanics.</p>
+<p>In the above code, that we require two arguments be provided. If not, we return with a friendly tip. Otherwise, we get the source filename as the first argument and the destination filename as the second argument. You might want to add some code to make sure the source file exists, but I'm going to skip that so we can focus on the core mechanics. If you are not familiar with the <code>using</code> statement, you may want to <a href="https://msdn.microsoft.com/en-us/library/yh598w02.aspx?f=255&amp;MSPPError=-2147217396">look that up</a>. In C# that is a way to cleanup objects when we are done with them. It is particularly useful for file operations.</p>
 
 <p>The real work is the five lines of code that start on line 19 with the <code>using</code> statement. We open our source file for reading (line 19) and we create our destination file for writing (line 20). We get a stream for each file and simply copy the contents of one file to the outher using the <code>CopyTo</code> method (line 22). If you are following along, this is a good time to make sure you can get this working and that you can create the target file identical to the source.</p>
+
+<h2>
+<a id="encryption-at-last" class="anchor" href="#encryption-at-last" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Encryption At Last</h2>
+
+<p>Since we are already copying files using <code>Stream</code> objects, we use the <code>CryptoStream</code> API to add encryption to the existing operation.</p>
+
+<pre><code>using System;
+using System.IO;
+using System.Security.Cryptography;
+
+namespace Tutorial01
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            if (args.Length != 2)
+            {
+                Console.WriteLine("You must provide the name of a file to read and the name of a file to write.");
+                return;
+            }
+
+            var sourceFilename = args[0];
+            var destinationFilename = args[1];
+
+            using (var sourceStream = File.OpenRead(sourceFilename))
+            using (var destinationStream = File.Create(destinationFilename))
+            using (var provider = new AesCryptoServiceProvider())
+            using (var cryptoTransform = provider.CreateEncryptor())
+            using (var cryptoStream = new CryptoStream(destinationStream, cryptoTransform, CryptoStreamMode.Write))
+            {
+                sourceStream.CopyTo(cryptoStream);
+            }
+        }
+    }
+}
+</code></pre>
+
+<p>The only thing we did here was add a few lines of code (lines 22, 23, 24) and made a slight alteration to the stream copy (line 26). Line 22 creates a new <code>AesCryptoServiceProvider</code>. This provider has information about <em>how</em> we want to encrypt. We will look at that more later. For now, we just want to use it to create the decryptor transform that we need (line 23). If we wanted to do things the hard way we could use the transform directly, but it's easier to use the <code>CryptoStream</code>. On line 24 we create the <code>CryptoStream</code>. We need to give it the stream to write to, the transform (in our case the encryptor) and let it know that we want this to be a writable stream. The <code>CryptoStream</code> wraps our destination stream. That is, it takes the bytes that need to be written and processes (encrypts) the bytes and then sends the processed bytes to the destination stream. We basically inject our encryption between the two file streams that we are already using. Line 26 shows how we achieve this by calling <code>CopyTo</code> on the sourceStream and providing our new <code>CryptoStream</code>.</p>
+
+<p>When you run this program, your output file will be securely encrypted. You should test it to make sure. Your output file should like like a bunch of seamingly random bytes.</p>
+
+<h2>
+<a id="wait-a-minute" class="anchor" href="#wait-a-minute" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Wait a Minute!</h2>
+
+<p>If everything went well, you have an encrypted file. But remember, above, we mentioned symmetric encryption? Symmetric encryption uses the same credentials to decrypt and encrypt the data. That suggests that we need to have some kind of credentials in the first place. AES uses a <em>key</em> and supports different key sizes. By default the key length is 256 bits (32 bytes). A key is simply any 32 bytes of data we want to use. Whatever key we use to encrypt the data will be needed to decrypt the data. If we decrypt the data with the wrong key we will get garbage. But what key did we use above? We don't seem to specify one at all.</p>
+
+<p>When an <code>AesCryptoServiceProvider</code> is created, it automatically creates a secure random key. We are just using whatever it randomly created. That is fine, but if we are ever going to decrypt the file we will need to know what the key is. Let's add some code to display the AES encryption key that was used.</p>
+
+<pre><code>        {
+            sourceStream.CopyTo(cryptoStream);
+            Console.WriteLine(System.Convert.ToBase64String(provider.Key));
+        }
+</code></pre>
+
+<p>Not so tough. We just get the <code>Key</code> property of the <code>AesCryptoServiceProvider</code>. The key is an array of bytes, which won't print very nicely. Using <code>System.Convert.ToBase64String</code> makes it so we can represent all of those byte values as printable characters. We could have converted the byte array to a hex string or any number of things, but <a href="https://en.wikipedia.org/wiki/Base64">Base64</a> is convienient.</p>
+
+<h2>
+<a id="oh-and-one-more-thing" class="anchor" href="#oh-and-one-more-thing" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Oh, And One More Thing...</h2>
+
+<p>What about the <em>initialization vector</em>?</p>
 
 <p>Last updated: April 5, 2015</p>
       </section>
