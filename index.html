@@ -160,7 +160,10 @@ namespace Tutorial01
 
 <p>In this tutorial we decrypt an ecrypted file, restoring it to its original state. To do this, we need three things: the key used to encrypt the file, the IV used to encrypt the file, and the encrypted file. From our last tutorial, we display the key in the console after encrypting the file and we store the IV at the front of the file. So we have averything we need.</p>
 
-<p>Our current program accepts two filenames as command line arguments. Let's modify it to accept a third argument, the decryption key. Because it help us enderstand how the program works, let's go ahead and update the help text in the program.</p>
+<h2>
+<a id="getting-ready" class="anchor" href="#getting-ready" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Getting Ready</h2>
+
+<p>Our current program accepts two filenames as command line arguments. Let's modify it to accept a third argument, the decryption key. Because it helps us enderstand how the program works, let's go ahead and update the help text in the program.</p>
 
 <pre><code>        if (args.Length &lt; 2 || args.Length &gt; 3)
         {
@@ -174,7 +177,7 @@ namespace Tutorial01
         }
 </code></pre>
 
-<p>Notice that we know allow for two or three arguments. If the third argument is provided, we use it as the key for decrypting the source file. Then we need to get the values from the coomand line.</p>
+<p>Notice that we now allow for two or three arguments. If the third argument is provided, we use it as the key for decrypting the source file. Now we are ready to get the values from the coomand line.</p>
 
 <pre><code>        var sourceFilename = args[0];
         var destinationFilename = args[1];
@@ -186,10 +189,11 @@ namespace Tutorial01
         }
 </code></pre>
 
-<p>Remember that we wrote out the key using Base64 encoding, so when we get the key we convert it back from Base64 to the byte array that we need. For the rest of the code, we now kow that if we have a key, we want to decrypt the source file. If we don't have a key we want to encrypt the source file. For the existing encryption code we can just wrap it inside an <code>if</code> statement.</p>
+<p>Remember that we wrote out the key using Base64 encoding, so when we get the key we convert it back from Base64 to the byte array that we need. For the rest of the code, we now know that if <code>key</code> is not <code>null</code>, we want to decrypt the source file. If <code>key</code> is not <code>null</code> we want to encrypt the source file. For the existing encryption code we just wrap it inside an <code>if</code> statement.</p>
 
 <pre><code>        if (key == null)
         {
+            // Encrypt the source file and write it to the destination file.
             using (var sourceStream = File.OpenRead(sourceFilename))
             using (var destinationStream = File.Create(destinationFilename))
             using (var provider = new AesCryptoServiceProvider())
@@ -204,6 +208,36 @@ namespace Tutorial01
 </code></pre>
 
 <p>Nothing changed from our existing encryption code; we just put it all in the <code>if</code> block.</p>
+
+<h2>
+<a id="decryption" class="anchor" href="#decryption" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Decryption</h2>
+
+<p>We can finally get to the decryption code. It looks a like like the encryption code and lives inside the else block of the previous <code>if</code> statement.</p>
+
+<pre><code>        else
+        {
+            // Decrypt the source file and write it to the destination file.
+            using (var sourceStream = File.OpenRead(sourceFilename))
+            using (var destinationStream = File.Create(destinationFilename))
+            using (var provider = new AesCryptoServiceProvider())
+            {
+                var IV = new byte[provider.IV.Length];
+                sourceStream.Read(IV, 0, IV.Length);
+                using (var cryptoTransform = provider.CreateDecryptor(key, IV))
+                using (var cryptoStream = new CryptoStream(sourceStream, cryptoTransform, CryptoStreamMode.Read))
+                {
+                    cryptoStream.CopyTo(destinationStream);
+                }
+            }
+        }
+</code></pre>
+
+<p>The structure of this new code is very similar the the encryption code. Let's look at the differences. We need to read the IV from the file before we can decrypt it. We actually have to get it before we can create the decryption transform, since the transform needs the key and the IV to do it's work. So, we break up our <code>using</code> statements a little bit so we can put our logic in where it needs to be. We pass the key and the IV to <code>CreateDecryptor</code> and we are ready to decrypt. We just call <code>CopyTo</code> on the <code>CryptoStream</code> and it will decrypt the bytes and write them to the destination.</p>
+
+<h2>
+<a id="summary" class="anchor" href="#summary" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Summary</h2>
+
+<p>Now we can encrypt files and get the secret key and we can use that secret key to restore the file. This is the basic start of a file encryption system. If you want to encrypt a few files, this will work well because you only need to keep a few keys. If you want to encrypt a lot of files, this will get out of control as the number of keys grows. That is a topic for a future post, but in the mean time you could zip a bunch of files and then encrypt the single zip file if you needed to.</p>
 
 <p>Last updated: April 5, 2015</p>
 
