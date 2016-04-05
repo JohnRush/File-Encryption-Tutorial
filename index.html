@@ -1,37 +1,25 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en-us">
   <head>
-    <meta charset='utf-8'>
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="description" content="C# File Encryption Tutorial : ">
-
-    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
-
-    <title>C# File Encryption Tutorial</title>
+    <meta charset="UTF-8">
+    <title>C# File Encryption Tutorial by JohnRush</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
   </head>
-
   <body>
+    <section class="page-header">
+      <h1 class="project-name">C# File Encryption Tutorial</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/JohnRush/File-Encryption-Tutorial" class="btn">View on GitHub</a>
+      <a href="https://github.com/JohnRush/File-Encryption-Tutorial/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/JohnRush/File-Encryption-Tutorial/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
 
-    <!-- HEADER -->
-    <div id="header_wrap" class="outer">
-        <header class="inner">
-          <a id="forkme_banner" href="https://github.com/JohnRush/File-Encryption-Tutorial">View on GitHub</a>
-
-          <h1 id="project_title">C# File Encryption Tutorial</h1>
-          <h2 id="project_tagline"></h2>
-
-            <section id="downloads">
-              <a class="zip_download_link" href="https://github.com/JohnRush/File-Encryption-Tutorial/zipball/master">Download this project as a .zip file</a>
-              <a class="tar_download_link" href="https://github.com/JohnRush/File-Encryption-Tutorial/tarball/master">Download this project as a tar.gz file</a>
-            </section>
-        </header>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main_content_wrap" class="outer">
-      <section id="main_content" class="inner">
-        <h1>
+    <section class="main-content">
+      <h1>
 <a id="overview" class="anchor" href="#overview" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Overview</h1>
 
 <p>This tutorial will show you how to encrypt files using the .NET Crypto API. We start off simple and add features one step at a time. All of the code is available for each step, so you can follow along or just play with the final version if you prefer.</p>
@@ -167,19 +155,66 @@ namespace Tutorial01
 
 <p>Now we are looking pretty good. We encrypt a file. We save the IV in the file where it is easy to find and we display the key, so you save it in a secret place until it is needed to decrypt the file.</p>
 
+<h1>
+<a id="tutorial-2" class="anchor" href="#tutorial-2" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Tutorial 2</h1>
+
+<p>In this tutorial we decrypt an ecrypted file, restoring it to its original state. To do this, we need three things: the key used to encrypt the file, the IV used to encrypt the file, and the encrypted file. From our last tutorial, we display the key in the console after encrypting the file and we store the IV at the front of the file. So we have averything we need.</p>
+
+<p>Our current program accepts two filenames as command line arguments. Let's modify it to accept a third argument, the decryption key. Because it help us enderstand how the program works, let's go ahead and update the help text in the program.</p>
+
+<pre><code>        if (args.Length &lt; 2 || args.Length &gt; 3)
+        {
+            Console.WriteLine("Encrypt or Decrypt a file.");
+            Console.WriteLine("\nTutorial02 source destination [key]\n");
+            Console.WriteLine("{0,-15}Specifies the source file.", "source");
+            Console.WriteLine("{0,-15}Specifies the destination file.", "destination");
+            Console.WriteLine("{0,-15}The optional decryption key.", "key");
+            Console.WriteLine("{0,-15}If provided we decrypt, otherwise we encrypt.", "");
+            return;
+        }
+</code></pre>
+
+<p>Notice that we know allow for two or three arguments. If the third argument is provided, we use it as the key for decrypting the source file. Then we need to get the values from the coomand line.</p>
+
+<pre><code>        var sourceFilename = args[0];
+        var destinationFilename = args[1];
+
+        byte[] key = null;
+        if (args.Length == 3)
+        {
+            key = System.Convert.FromBase64String(args[2]);
+        }
+</code></pre>
+
+<p>Remember that we wrote out the key using Base64 encoding, so when we get the key we convert it back from Base64 to the byte array that we need. For the rest of the code, we now kow that if we have a key, we want to decrypt the source file. If we don't have a key we want to encrypt the source file. For the existing encryption code we can just wrap it inside an <code>if</code> statement.</p>
+
+<pre><code>        if (key == null)
+        {
+            using (var sourceStream = File.OpenRead(sourceFilename))
+            using (var destinationStream = File.Create(destinationFilename))
+            using (var provider = new AesCryptoServiceProvider())
+            using (var cryptoTransform = provider.CreateEncryptor())
+            using (var cryptoStream = new CryptoStream(destinationStream, cryptoTransform, CryptoStreamMode.Write))
+            {
+                destinationStream.Write(provider.IV, 0, provider.IV.Length);
+                sourceStream.CopyTo(cryptoStream);
+                Console.WriteLine(System.Convert.ToBase64String(provider.Key));
+            }
+        }
+</code></pre>
+
+<p>Nothing changed from our existing encryption code; we just put it all in the <code>if</code> block.</p>
+
 <p>Last updated: April 5, 2015</p>
-      </section>
-    </div>
 
-    <!-- FOOTER  -->
-    <div id="footer_wrap" class="outer">
-      <footer class="inner">
-        <p class="copyright">C# File Encryption Tutorial maintained by <a href="https://github.com/JohnRush">JohnRush</a></p>
-        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/JohnRush/File-Encryption-Tutorial">C# File Encryption Tutorial</a> is maintained by <a href="https://github.com/JohnRush">JohnRush</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
       </footer>
-    </div>
 
-    
+    </section>
 
+  
   </body>
 </html>
