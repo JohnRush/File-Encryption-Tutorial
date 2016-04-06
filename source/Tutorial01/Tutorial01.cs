@@ -23,9 +23,7 @@ namespace Tutorial
             using (var cryptoTransform = provider.CreateEncryptor())
             using (var cryptoStream = new CryptoStream(destinationStream, cryptoTransform, CryptoStreamMode.Write))
             {
-                destinationStream.Write(provider.IV, 0, provider.IV.Length);
                 sourceStream.CopyTo(cryptoStream);
-                Console.WriteLine(System.Convert.ToBase64String(provider.Key));
             }
         }
     }
